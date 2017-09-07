@@ -424,6 +424,7 @@ class CreateWall():
         lower_shading_point = AllplanGeo.Polygon3D()
         lower_shading_path = AllplanGeo.Polyline3D()
         
+        #offset from windows
         offset = 30
 
         z_ref= windows_refz - shading_t - offset
