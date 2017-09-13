@@ -501,7 +501,7 @@ class CreateWall():
         lower_shading_path = AllplanGeo.Polyline3D()
         
         #offset from windows
-        offset = 30
+        offset = 0
 
         z_ref= windows_refz - shading_t - offset
         x_ref= windows_refx + windows_length/2   - shading_l/2
@@ -523,7 +523,57 @@ class CreateWall():
         if not GeometryValidate.polyhedron(err):
             return        
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_shading))
-        return lower_shading 
+        return lower_shading
+
+    def add_shading_back(self, build_ele ,com_prop_stroke) :
+        #lower_shading=0
+        shading_back_l1=build_ele.shading_back_l1.value
+        shading_back_l2=build_ele.shading_back_l2.value
+        shading_back_h1=build_ele.shading_back_h1.value
+        shading_back_h2=build_ele.shading_back_h2.value
+        shading_back_d=build_ele.shading_back_depth.value
+
+        wall_length  = build_ele.Length1_1.value
+        wall_width = build_ele.Width1_1.value
+        wall_thickness = build_ele.Thickness1_1.value
+
+        windows_refz = build_ele.win_z.value
+        windows_width = build_ele.win_width.value
+        
+
+        shading_back_point = AllplanGeo.Polygon3D()
+        shading_back_path = AllplanGeo.Polyline3D()
+        
+        #offset from windows
+        offset = 50
+
+        x_ref= wall_length/2 - shading_back_l1/2
+        y_ref= wall_thickness
+        z_ref= windows_refz + windows_width + offset
+        
+
+        shading_back_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+        shading_back_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+shading_back_h1)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1/2 - shading_back_l2/2, y_ref, z_ref+shading_back_h1)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1/2 - shading_back_l2/2, y_ref, z_ref+shading_back_h1+shading_back_h2)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1/2 + shading_back_l2/2, y_ref, z_ref+shading_back_h1+shading_back_h2)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1/2 + shading_back_l2/2, y_ref, z_ref+shading_back_h1)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1, y_ref, z_ref+shading_back_h1)
+        shading_back_point += AllplanGeo.Point3D(x_ref+shading_back_l1, y_ref, z_ref)
+        shading_back_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+
+        if not GeometryValidate.is_valid(shading_back_point):
+          return
+
+        shading_back_path += AllplanGeo.Point3D(x_ref,y_ref,z_ref)
+        shading_back_path += AllplanGeo.Point3D(x_ref,y_ref+shading_back_d,z_ref)
+
+
+        err, shading_back = AllplanGeo.CreatePolyhedron(shading_back_point, shading_back_path)
+        if not GeometryValidate.polyhedron(err):
+            return        
+        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, shading_back))
+        return shading_back
 
 
     def create_geometry(self, build_ele):
@@ -613,7 +663,9 @@ class CreateWall():
         if (join4_type_added) :
           lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
           err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
-        
+
+        shading_back = self.add_shading_back(build_ele, com_prop_stroke)
+        err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
         #---------------------------------------Add Wall Element----------------------------------------#
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
 
