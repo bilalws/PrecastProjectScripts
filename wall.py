@@ -369,6 +369,45 @@ class CreateWall():
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join2))
         return join2
 
+    def add_upper_join(self, build_ele ,com_prop_stroke) :
+
+        upper_join_l=build_ele.type3_length.value
+        upper_join_h=build_ele.type3_height.value
+        upper_join_d1=build_ele.type3_depth1.value
+        upper_join_d2=build_ele.type3_depth2.value
+
+        wall_length  = build_ele.Length1_1.value
+        wall_width = build_ele.Width1_1.value
+        wall_thickness = build_ele.Thickness1_1.value
+
+        upper_join_point = AllplanGeo.Polygon3D()
+        upper_join_path = AllplanGeo.Polyline3D()
+
+
+        x_ref= wall_length/2 - upper_join_l/2
+        y_ref= wall_thickness
+        z_ref= wall_width
+        
+
+        upper_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+0)
+        upper_join_point += AllplanGeo.Point3D(x_ref, y_ref-upper_join_d1, z_ref+0)
+        upper_join_point += AllplanGeo.Point3D(x_ref, y_ref-upper_join_d2, z_ref+upper_join_h)
+        upper_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+upper_join_h)
+        upper_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+0)
+
+        if not GeometryValidate.is_valid(upper_join_point):
+          return
+
+        upper_join_path += AllplanGeo.Point3D(x_ref,0,0)
+        upper_join_path += AllplanGeo.Point3D(x_ref+upper_join_l,0,0)
+
+
+        err, upper_join = AllplanGeo.CreatePolyhedron(upper_join_point, upper_join_path)
+        if not GeometryValidate.polyhedron(err):
+            return        
+        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_join))
+        return upper_join
+
     def add_upper_shading(self, build_ele ,com_prop_stroke) :
         #upper_shading=0
 
@@ -464,7 +503,6 @@ class CreateWall():
         wall_width = build_ele.Width1_1.value
         wall_thickness = build_ele.Thickness1_1.value
 
-
         void_active = build_ele.chkb_win.value
         door_active = build_ele.chkb_door.value
 
@@ -525,6 +563,8 @@ class CreateWall():
           err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
           #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, lower_shading))
 
+        upper_join = self.add_upper_join(build_ele, com_prop_stroke)
+        err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
         #---------------------------------------Add Wall Element----------------------------------------#
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
 
