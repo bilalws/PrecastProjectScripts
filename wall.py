@@ -369,7 +369,7 @@ class CreateWall():
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join2))
         return join2
 
-    def add_upper_join(self, build_ele ,com_prop_stroke) :
+    def add_upper_join(self, build_ele ,com_prop_stroke ,type =1) :
 
         upper_join_l=build_ele.type3_length.value
         upper_join_h=build_ele.type3_height.value
@@ -407,6 +407,43 @@ class CreateWall():
             return        
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_join))
         return upper_join
+
+    def add_lower_join(self, build_ele ,com_prop_stroke ,type =1) :
+        lower_join_h=build_ele.type4_height.value
+        lower_join_d1=build_ele.type4_depth1.value
+        lower_join_d2=build_ele.type4_depth2.value
+
+        wall_length  = build_ele.Length1_1.value
+        wall_width = build_ele.Width1_1.value
+        wall_thickness = build_ele.Thickness1_1.value
+
+        lower_join_point = AllplanGeo.Polygon3D()
+        lower_join_path = AllplanGeo.Polyline3D()
+
+
+        x_ref= 0
+        y_ref= wall_thickness
+        z_ref= 0
+        
+
+        lower_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+0)
+        lower_join_point += AllplanGeo.Point3D(x_ref, y_ref-lower_join_d1, z_ref+0)
+        lower_join_point += AllplanGeo.Point3D(x_ref, y_ref-lower_join_d2, z_ref+lower_join_h)
+        lower_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+lower_join_h)
+        lower_join_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+0)
+
+        if not GeometryValidate.is_valid(lower_join_point):
+          return
+
+        lower_join_path += AllplanGeo.Point3D(x_ref,0,0)
+        lower_join_path += AllplanGeo.Point3D(x_ref+wall_length,0,0)
+
+
+        err, lower_join = AllplanGeo.CreatePolyhedron(lower_join_point, lower_join_path)
+        if not GeometryValidate.polyhedron(err):
+            return        
+        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_join))
+        return lower_join
 
     def add_upper_shading(self, build_ele ,com_prop_stroke) :
         #upper_shading=0
@@ -512,6 +549,12 @@ class CreateWall():
         join2_type_added = build_ele.join2_type_active.value
         join2_type_select = build_ele.join2_type.value
 
+        join3_type_added = build_ele.join3_type_active.value
+        join3_type_select = build_ele.join3_type.value
+
+        join4_type_added = build_ele.join4_type_active.value
+        join4_type_select = build_ele.join4_type.value
+
         upper_shading_added = build_ele.upper_shading_active.value
         lower_shading_added = build_ele.lower_shading_active.value
         
@@ -563,8 +606,14 @@ class CreateWall():
           err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
           #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, lower_shading))
 
-        upper_join = self.add_upper_join(build_ele, com_prop_stroke)
-        err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
+        if (join3_type_added) :
+          upper_join = self.add_upper_join(build_ele, com_prop_stroke, type=join3_type_select)
+          err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
+
+        if (join4_type_added) :
+          lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
+        
         #---------------------------------------Add Wall Element----------------------------------------#
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
 
