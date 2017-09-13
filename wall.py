@@ -607,6 +607,8 @@ class CreateWall():
 
         upper_shading_added = build_ele.upper_shading_active.value
         lower_shading_added = build_ele.lower_shading_active.value
+        shading_back_added = build_ele.upper_shading_back_active.value
+        
         
 
 
@@ -664,8 +666,9 @@ class CreateWall():
           lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
           err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
 
-        shading_back = self.add_shading_back(build_ele, com_prop_stroke)
-        err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
+        if (shading_back_added) :
+          shading_back = self.add_shading_back(build_ele, com_prop_stroke)
+          err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
         #---------------------------------------Add Wall Element----------------------------------------#
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
 
