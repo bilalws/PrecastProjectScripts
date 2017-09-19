@@ -466,18 +466,19 @@ class CreateWall():
         z_ref= windows_refz + windows_width + offset
         x_ref= windows_refx + windows_length/2   - shading_l/2
 
-        upper_shading_point += AllplanGeo.Point3D(x_ref, 0, z_ref+0)
-        upper_shading_point += AllplanGeo.Point3D(x_ref, -shading_d, z_ref+0)
-        upper_shading_point += AllplanGeo.Point3D(x_ref, -shading_d, z_ref+shading_b)
-        upper_shading_point += AllplanGeo.Point3D(x_ref, 0, z_ref+shading_t)
-        upper_shading_point += AllplanGeo.Point3D(x_ref, 0, z_ref+0)
+        upper_shading_point += AllplanGeo.Point3D(0, 0, z_ref+0)
+        upper_shading_point += AllplanGeo.Point3D(0, -shading_d, z_ref+0)
+        upper_shading_point += AllplanGeo.Point3D(0, -shading_d, z_ref+shading_b)
+        upper_shading_point += AllplanGeo.Point3D(0, 0, z_ref+shading_t)
+        upper_shading_point += AllplanGeo.Point3D(0, 0, z_ref+0)
 
         if not GeometryValidate.is_valid(upper_shading_point):
           return
 
-        upper_shading_path += AllplanGeo.Point3D(x_ref,0,0)
+        upper_shading_path += AllplanGeo.Point3D(0,0,z_ref)
         #upper_shading_path += AllplanGeo.Point3D(x_ref+shading_l,0,0)
-        upper_shading_path += AllplanGeo.Point3D(x_ref+4000,0,0)
+        upper_shading_path += AllplanGeo.Point3D(0+4000,0,z_ref)
+        upper_shading_path += AllplanGeo.Point3D(0+4000,1000,z_ref)
 
         err, upper_shading = AllplanGeo.CreatePolyhedron(upper_shading_point, upper_shading_path)
         if not GeometryValidate.polyhedron(err):
