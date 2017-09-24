@@ -121,7 +121,7 @@ class CreateWall():
         trans_to_ref_point_2.Translate(AllplanGeo.Vector3D(p_x, p_y, p_z))
         void = AllplanGeo.Transform(void, trans_to_ref_point_2)
 
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, void))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, void))
 
         #--------------------------------------------------------------------------------------#
         #----------------------------------Void Handle-----------------------------------------#
@@ -182,7 +182,7 @@ class CreateWall():
         trans_to_ref_point_3.Translate(AllplanGeo.Vector3D(d_x, d_y, d_z))
         door = AllplanGeo.Transform(door, trans_to_ref_point_3)
 
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, door))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, door))
 
         #--------------------------------------------------------------------------------------#
         #----------------------------------Door Handle-----------------------------------------#
@@ -291,7 +291,7 @@ class CreateWall():
           return
 
         #NemAll_Python_Utility.ShowMessageBox("pass2",1)
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join1))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join1))
         return join1
 
     def add_joins_right(self, build_ele ,com_prop_stroke ,type =1) :
@@ -366,7 +366,7 @@ class CreateWall():
         if not GeometryValidate.polyhedron(err):
             return
 
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join2))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, join2))
         return join2
 
     def add_upper_join(self, build_ele ,com_prop_stroke ,type =1) :
@@ -405,7 +405,7 @@ class CreateWall():
         err, upper_join = AllplanGeo.CreatePolyhedron(upper_join_point, upper_join_path)
         if not GeometryValidate.polyhedron(err):
             return        
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_join))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_join))
         return upper_join
 
     def add_lower_join(self, build_ele ,com_prop_stroke ,type =1) :
@@ -442,7 +442,7 @@ class CreateWall():
         err, lower_join = AllplanGeo.CreatePolyhedron(lower_join_point, lower_join_path)
         if not GeometryValidate.polyhedron(err):
             return        
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_join))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_join))
         return lower_join
 
     def add_upper_shading(self, build_ele ,com_prop_stroke) :
@@ -482,7 +482,7 @@ class CreateWall():
         err, upper_shading = AllplanGeo.CreatePolyhedron(upper_shading_point, upper_shading_path)
         if not GeometryValidate.polyhedron(err):
             return        
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_shading))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_shading))
         return upper_shading
 
     def add_lower_shading(self, build_ele ,com_prop_stroke) :
@@ -522,7 +522,7 @@ class CreateWall():
         err, lower_shading = AllplanGeo.CreatePolyhedron(lower_shading_point, lower_shading_path)
         if not GeometryValidate.polyhedron(err):
             return        
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_shading))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, lower_shading))
         return lower_shading
 
     def add_shading_back(self, build_ele ,com_prop_stroke) :
@@ -572,7 +572,7 @@ class CreateWall():
         err, shading_back = AllplanGeo.CreatePolyhedron(shading_back_point, shading_back_path)
         if not GeometryValidate.polyhedron(err):
             return        
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, shading_back))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, shading_back))
         return shading_back
 
 
@@ -630,7 +630,7 @@ class CreateWall():
         com_prop_stroke.Stroke = 9 # dots
         com_prop_stroke.HelpConstruction = True
 
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
 
         #------------------ Append Element to Wall -------------------------------------------------#
         if (void_active) :
