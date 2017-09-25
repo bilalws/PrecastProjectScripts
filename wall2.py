@@ -429,8 +429,8 @@ class CreateWall():
         wall_width = build_ele.Width1_1.value
         wall_thickness = build_ele.Thickness1_1.value
 
-        lower__join_l=self.wall_length
-        lower__join_l2=self.wall_length2
+        lower_join_l=self.wall_length
+        lower_join_l2=self.wall_length2
 
         lower_join_point = AllplanGeo.Polygon3D()
         lower_join_path = AllplanGeo.Polyline3D()
@@ -450,8 +450,8 @@ class CreateWall():
           return
 
         lower_join_path += AllplanGeo.Point3D(x_ref,0,0)
-        lower_join_path += AllplanGeo.Point3D(x_ref+lower__join_l,0,0)
-        lower_join_path += AllplanGeo.Point3D(x_ref+lower__join_l,lower__join_l2,0)
+        lower_join_path += AllplanGeo.Point3D(x_ref+lower_join_l,0,0)
+        lower_join_path += AllplanGeo.Point3D(x_ref+lower_join_l,lower_join_l2,0)
 
 
         err, lower_join = AllplanGeo.CreatePolyhedron(lower_join_point, lower_join_path)

@@ -115,31 +115,32 @@ class CreateWall():
         return (self.model_ele_list, self.handle_list)
 
     def add_windows(self, build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness):
-        p_x = build_ele.win_x.value
-        p_y = 0
-        p_z = build_ele.win_z.value
-
+        
         void_length  = build_ele.win_length.value
         void_width = build_ele.win_width.value
         void_thickness = wall_thickness
 
+        p_x = build_ele.win_x.value+void_length
+        p_y = 0
+        p_z = build_ele.win_z.value
+
         void = AllplanGeo.Polyhedron3D.CreateCuboid(void_length, void_thickness, void_width)
         trans_to_ref_point_2 = AllplanGeo.Matrix3D()
-        trans_to_ref_point_2.Translate(AllplanGeo.Vector3D(p_x, p_y, p_z))
+        trans_to_ref_point_2.Translate(AllplanGeo.Vector3D(-p_x, p_y, p_z))
         void = AllplanGeo.Transform(void, trans_to_ref_point_2)
 
-        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, void))
+        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, void))
 
         #--------------------------------------------------------------------------------------#
         #----------------------------------Void Handle-----------------------------------------#
         #--------------------------------------------------------------------------------------#
         origin = AllplanGeo.Point3D(0, 0, 0)
 
-        originwin = AllplanGeo.Point3D(p_x, 0, p_z)
-        win_plength = AllplanGeo.Point3D(p_x+void_length, 0, p_z)
-        win_pwidth = AllplanGeo.Point3D(p_x, 0, p_z+void_width)
-        win_pointx = AllplanGeo.Point3D(p_x+void_length/2, 0, p_z)
-        win_pointz = AllplanGeo.Point3D(p_x, 0, p_z+void_width/2)
+        originwin = AllplanGeo.Point3D(-p_x, 0, p_z)
+        win_plength = AllplanGeo.Point3D(-p_x+void_length, 0, p_z)
+        win_pwidth = AllplanGeo.Point3D(-p_x, 0, p_z+void_width)
+        win_pointx = AllplanGeo.Point3D(-p_x+void_length/2, 0, p_z)
+        win_pointz = AllplanGeo.Point3D(-p_x, 0, p_z+void_width/2)
 
         handle_winlength = HandleProperties("windowsMoveLength",
                                    win_plength,
@@ -622,11 +623,36 @@ class CreateWall():
 
         #------------------------------------ Create wall------------------------------------------#
 
-        wall = AllplanGeo.Polyhedron3D.CreateCuboid(wall_length, wall_thickness, wall_width)
-        trans_to_ref_point_1 = AllplanGeo.Matrix3D()
-        trans_to_ref_point_1.Translate(AllplanGeo.Vector3D(0, 0, 0))
-        wall = AllplanGeo.Transform(wall, trans_to_ref_point_1)
-        
+        #wall = AllplanGeo.Polyhedron3D.CreateCuboid(wall_length, wall_thickness, wall_width)
+        #trans_to_ref_point_1 = AllplanGeo.Matrix3D()
+        #trans_to_ref_point_1.Translate(AllplanGeo.Vector3D(0, 0, 0))
+        #wall = AllplanGeo.Transform(wall, trans_to_ref_point_1)
+
+
+        wall_point = AllplanGeo.Polygon3D()
+        wall_path_path = AllplanGeo.Polyline3D()
+
+        x_ref = 0
+        y_ref = 0
+        z_ref = 0
+
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+self.wall_width)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref+self.wall_thickness, z_ref+self.wall_width)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref+self.wall_thickness, z_ref)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+
+        if not GeometryValidate.is_valid(wall_point):
+          return
+
+        wall_path_path += AllplanGeo.Point3D(x_ref,y_ref,z_ref)
+        wall_path_path += AllplanGeo.Point3D(x_ref-self.wall_length,y_ref,z_ref)
+        wall_path_path += AllplanGeo.Point3D(x_ref-self.wall_length-552.8,y_ref+658.8,z_ref)
+
+        err, wall = AllplanGeo.CreatePolyhedron(wall_point, wall_path_path)
+        if not GeometryValidate.polyhedron(err):
+            return
+
 
         #----------------------------Create Component Property--------------------------------------#
         com_prop_base_bodies = AllplanBaseElements.CommonProperties()
@@ -638,45 +664,46 @@ class CreateWall():
         com_prop_stroke.Stroke = 9 # dots
         com_prop_stroke.HelpConstruction = True
 
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
 
         #------------------ Append Element to Wall -------------------------------------------------#
+        
         if (void_active) :
           void = self.add_windows(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
           err, wall = AllplanGeo.MakeSubtraction(wall ,void)
 
-        if (door_active) :
-          door = self.add_door(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,door)
+        # if (door_active) :
+        #   door = self.add_door(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
+        #   err, wall = AllplanGeo.MakeSubtraction(wall ,door)
 
-        if (join1_type_added) :
-          join1 = self.add_joins_left(build_ele, com_prop_stroke,type=join1_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,join1)
+        # if (join1_type_added) :
+        #   join1 = self.add_joins_left(build_ele, com_prop_stroke,type=join1_type_select)
+        #   err, wall = AllplanGeo.MakeSubtraction(wall ,join1)
 
-        if (join2_type_added) :
-          join2 = self.add_joins_right(build_ele, com_prop_stroke,type=join2_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,join2)
+        # if (join2_type_added) :
+        #   join2 = self.add_joins_right(build_ele, com_prop_stroke,type=join2_type_select)
+        #   err, wall = AllplanGeo.MakeSubtraction(wall ,join2)
 
-        if (upper_shading_added) :
-          upper_shading = self.add_upper_shading(build_ele, com_prop_stroke)
-          err, wall = AllplanGeo.MakeUnion(wall ,upper_shading)
+        # if (upper_shading_added) :
+        #   upper_shading = self.add_upper_shading(build_ele, com_prop_stroke)
+        #   err, wall = AllplanGeo.MakeUnion(wall ,upper_shading)
 
-        if (lower_shading_added) :
-          lower_shading = self.add_lower_shading(build_ele, com_prop_stroke)
-          err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
-          #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, lower_shading))
+        # if (lower_shading_added) :
+        #   lower_shading = self.add_lower_shading(build_ele, com_prop_stroke)
+        #   err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
+        #   self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, lower_shading))
 
-        if (join3_type_added) :
-          upper_join = self.add_upper_join(build_ele, com_prop_stroke, type=join3_type_select)
-          err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
+        # if (join3_type_added) :
+        #   upper_join = self.add_upper_join(build_ele, com_prop_stroke, type=join3_type_select)
+        #   err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
 
-        if (join4_type_added) :
-          lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
+        # if (join4_type_added) :
+        #   lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
+        #   err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
 
-        if (shading_back_added) :
-          shading_back = self.add_shading_back(build_ele, com_prop_stroke)
-          err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
+        # if (shading_back_added) :
+        #   shading_back = self.add_shading_back(build_ele, com_prop_stroke)
+        #   err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
         #---------------------------------------Add Wall Element----------------------------------------#
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
 
@@ -686,7 +713,7 @@ class CreateWall():
         #-----------------------------------------------------------------------------------------------#
 
         origin = AllplanGeo.Point3D(0, 0, 0)
-        wall_plength = AllplanGeo.Point3D(wall_length, 0, 0)
+        wall_plength = AllplanGeo.Point3D(-wall_length, 0, 0)
         wall_pwidth = AllplanGeo.Point3D(0, 0, wall_width)
         wall_pthickness = AllplanGeo.Point3D(0, wall_thickness, 0)
 
