@@ -14,7 +14,7 @@ from HandleProperties import HandleProperties
 
 from PythonPart import View2D3D, PythonPart
 
-print('Load wall.py')
+print('Load wall4.py')
 
 def check_allplan_version(build_ele, version):
     """
@@ -575,6 +575,15 @@ class CreateWall():
         self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, shading_back))
         return shading_back
 
+    def add_ver_shading(self, build_ele ,com_prop_stroke) :
+        #lower_shading=0
+        ver_shading_width1  = 150
+        ver_shading_width2  = 120
+        ver_shading_offset  = 10
+        ver_shading_depth   = 300
+
+        
+        return ver_shading
 
     def create_geometry(self, build_ele):
         """
