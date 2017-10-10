@@ -3,15 +3,22 @@ Example Script for PrecastWallBKK
 """
 
 import NemAll_Python_Geometry as AllplanGeo
+import NemAll_Python_Reinforcement as AllplanReinf
 import NemAll_Python_BaseElements as AllplanBaseElements
 import NemAll_Python_BasisElements as AllplanBasisElements
 import GeometryValidate as GeometryValidate
 
 import NemAll_Python_Utility
 
+import StdReinfShapeBuilder.GeneralReinfShapeBuilder as GeneralShapeBuilder
+import StdReinfShapeBuilder.LinearBarPlacementBuilder as LinearBarBuilder
+
+from StdReinfShapeBuilder.ConcreteCoverProperties import ConcreteCoverProperties
+from StdReinfShapeBuilder.ReinforcementShapeProperties import ReinforcementShapeProperties
+from StdReinfShapeBuilder.RotationAngles import RotationAngles
+
 from HandleDirection import HandleDirection
 from HandleProperties import HandleProperties
-
 from PythonPart import View2D3D, PythonPart
 
 print('Load wall2.py')
@@ -98,19 +105,299 @@ class CreateWall():
         self.wall_width = build_ele.Width1_1.value
         self.wall_thickness = build_ele.Thickness1_1.value
 
+        self.windows_refz = build_ele.win_z.value
+        self.windows_width = build_ele.win_width.value
+
+        #----------------- Extract reinforcement parameter values
+        self.rein = True
+        self.concrete_grade        = 4
+        self.concrete_cover        = 25.0
+        self.diameter              = 10.0
+        self.bending_roller        = 4.0
+        self.steel_grade           = 4
+        self.distance              = 150.0
+        self.mesh_type             = None
+
+        self.start_hook            = True
+        self.start_hook_angle      = AllplanGeo.Angle()
+        self.end_hook              = True
+        self.end_hook_angle        = AllplanGeo.Angle()
+
         self.create_geometry(build_ele)
 
         views = [View2D3D (self.model_ele_list)]
 
-        pythonpart = PythonPart ("Wall Creation",
+        pythonpart = None
+
+        if (self.rein) :
+            reinforcement = self.create_reinforcement()
+            pythonpart = PythonPart ("Wall Creation",
+                                 parameter_list = build_ele.get_params_list(),
+                                 hash_value     = build_ele.get_hash(),
+                                 python_file    = build_ele.pyp_file_name,
+                                 views          = views,
+                                 reinforcement  = reinforcement)
+        else :
+            pythonpart = PythonPart ("Wall Creation",
                                  parameter_list = build_ele.get_params_list(),
                                  hash_value     = build_ele.get_hash(),
                                  python_file    = build_ele.pyp_file_name,
                                  views          = views)
 
+
+
         self.model_ele_list = pythonpart.create()
 
         return (self.model_ele_list, self.handle_list)
+
+
+    def create_geometry(self, build_ele):
+        """
+        Create the element geometries
+
+        Args:
+            build_ele:  the building element.
+        """
+
+        #----------------- Extract palette parameter values
+
+        wall_length  = build_ele.Length1_1.value
+        wall_length2  = 1000
+        wall_width = build_ele.Width1_1.value
+        wall_thickness = build_ele.Thickness1_1.value
+
+        void_active = build_ele.chkb_win.value
+        door_active = build_ele.chkb_door.value
+
+        join1_type_added = build_ele.join1_type_active.value
+        join1_type_select = build_ele.join1_type.value
+
+        join2_type_added = build_ele.join2_type_active.value
+        join2_type_select = build_ele.join2_type.value
+
+        join3_type_added = build_ele.join3_type_active.value
+        join3_type_select = 1
+
+        join4_type_added = build_ele.join4_type_active.value
+        join4_type_select = 1
+
+        upper_shading_added = build_ele.upper_shading_active.value
+        lower_shading_added = build_ele.lower_shading_active.value
+        shading_back_added = build_ele.upper_shading_back_active.value
+        
+        
+
+
+        #------------------------------------ Create wall------------------------------------------#
+
+        #wall = AllplanGeo.Polyhedron3D.CreateCuboid(wall_length, wall_thickness, wall_width)
+        #trans_to_ref_point_1 = AllplanGeo.Matrix3D()
+        #trans_to_ref_point_1.Translate(AllplanGeo.Vector3D(0, 0, 0))
+        #wall = AllplanGeo.Transform(wall, trans_to_ref_point_1)
+
+        wall_point = AllplanGeo.Polygon3D()
+        wall_path_path = AllplanGeo.Polyline3D()
+
+        x_ref = 0
+        y_ref = 0
+        z_ref = 0
+
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+wall_width)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref+wall_thickness, z_ref+wall_width)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref+wall_thickness, z_ref)
+        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+
+        if not GeometryValidate.is_valid(wall_point):
+          return
+
+        wall_path_path += AllplanGeo.Point3D(x_ref,y_ref,z_ref)
+        wall_path_path += AllplanGeo.Point3D(x_ref+wall_length,y_ref,z_ref)
+        wall_path_path += AllplanGeo.Point3D(x_ref+wall_length,y_ref+wall_length2,z_ref)
+
+        err, wall = AllplanGeo.CreatePolyhedron(wall_point, wall_path_path)
+        if not GeometryValidate.polyhedron(err):
+            return
+        
+
+        #----------------------------Create Component Property--------------------------------------#
+        com_prop_base_bodies = AllplanBaseElements.CommonProperties()
+        com_prop_base_bodies.GetGlobalProperties()
+        com_prop_base_bodies.Color = 1
+
+        com_prop_stroke = AllplanBaseElements.CommonProperties()
+        com_prop_stroke.GetGlobalProperties()
+        com_prop_stroke.Stroke = 9 # dots
+        com_prop_stroke.HelpConstruction = True
+
+        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
+
+        #------------------ Append Element to Wall -------------------------------------------------#
+        if (void_active) :
+          void = self.add_windows(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,void)
+
+        if (door_active) :
+          door = self.add_door(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,door)
+
+        if (join1_type_added) :
+          join1 = self.add_joins_left(build_ele, com_prop_stroke,type=join1_type_select)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,join1)
+
+        if (join2_type_added) :
+          join2 = self.add_joins_right(build_ele, com_prop_stroke,type=join2_type_select)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,join2)
+
+        if (upper_shading_added) :
+          upper_shading = self.add_upper_shading(build_ele, com_prop_stroke)
+          err, wall = AllplanGeo.MakeUnion(wall ,upper_shading)
+
+        if (lower_shading_added) :
+          lower_shading = self.add_lower_shading(build_ele, com_prop_stroke)
+          err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
+
+        if (join3_type_added) :
+          upper_join = self.add_upper_join(build_ele, com_prop_stroke, type=join3_type_select)
+          err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
+
+        if (join4_type_added) :
+          lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
+          err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
+
+        if (shading_back_added) :
+          shading_back, shading_back2 = self.add_shading_back(build_ele, com_prop_stroke)
+
+          err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
+          err, wall = AllplanGeo.MakeUnion(wall ,shading_back2)
+
+        #---------------------------------------Add Wall Element----------------------------------------#
+        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
+
+
+        #-----------------------------------------------------------------------------------------------#
+        #-----------------------------------------wall handle-------------------------------------------#
+        #-----------------------------------------------------------------------------------------------#
+
+        origin = AllplanGeo.Point3D(0, 0, 0)
+        wall_plength = AllplanGeo.Point3D(wall_length, 0, 0)
+        wall_pwidth = AllplanGeo.Point3D(0, 0, wall_width)
+        wall_pthickness = AllplanGeo.Point3D(0, wall_thickness, 0)
+
+        handle_walllength = HandleProperties("WallMoveLength",
+                                   wall_plength,
+                                   origin,
+                                   [("Length1_1", HandleDirection.x_dir)],
+                                   HandleDirection.x_dir,
+                                   True)
+        self.handle_list.append(handle_walllength)
+
+        handle_wallwidth = HandleProperties("WallMoveWidth",
+                                   wall_pwidth,
+                                   origin,
+                                   [("Width1_1", HandleDirection.z_dir)],
+                                   HandleDirection.z_dir,
+                                   True)
+        self.handle_list.append(handle_wallwidth)
+
+        handle_wallthickness = HandleProperties("WallMoveThickness",
+                                   wall_pthickness,
+                                   origin,
+                                   [("Thickness1_1", HandleDirection.y_dir)],
+                                   HandleDirection.y_dir,
+                                   True)
+        self.handle_list.append(handle_wallthickness)
+
+
+    def create_reinforcement(self):
+        """
+        Create the stirrup placement
+        Returns: created stirrup reinforcement
+        """
+        self.start_hook_angle.Deg = 180.0
+        self.end_hook_angle.Deg = 180.0
+
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller, self.steel_grade,
+                                                         self.concrete_grade, AllplanReinf.BendingShapeType.Stirrup)
+
+        start_hook = -1
+        start_hook_angle  = 90
+        if self.start_hook:
+            start_hook = 0 # 0 == calculate hook length
+            start_hook_angle = self.start_hook_angle.Deg
+
+        end_hook = -1
+        end_hook_angle = 90
+        if self.end_hook:
+            end_hook = 0 # 0 == calculate hook length
+            end_hook_angle = self.end_hook_angle.Deg
+
+        #offset from windows
+        offset = 50
+
+        x1_ref= 0
+        y1_ref= 0
+        z1_ref= self.windows_refz + self.windows_width + offset
+        placement1_length = self.wall_length + 20 - self.wall_thickness - 130    #130 is depth of shading back
+
+        placement1_start_point = AllplanGeo.Point3D(x1_ref, y1_ref, z1_ref)
+        placement1_end_point = AllplanGeo.Point3D(x1_ref+placement1_length, y1_ref, z1_ref)
+        rotation1_angles = RotationAngles(90, 0, 90)
+
+
+        x2_ref= self.wall_length
+        y2_ref= 0
+        z2_ref= self.windows_refz + self.windows_width + offset
+        placement2_length = self.wall_length2
+
+        placement2_start_point = AllplanGeo.Point3D(x2_ref, y2_ref, z2_ref)
+        placement2_end_point = AllplanGeo.Point3D(x2_ref, y2_ref+placement2_length, z2_ref)
+        rotation2_angles = RotationAngles(90, 0, 180)
+
+        
+        shape1 = GeneralShapeBuilder.create_open_stirrup(250, 480,
+                                                        rotation1_angles,
+                                                        shape_props,
+                                                        concrete_cover_props,
+                                                        start_hook,
+                                                        end_hook,
+                                                        start_hook_angle,
+                                                        end_hook_angle)
+
+        shape2 = GeneralShapeBuilder.create_open_stirrup(250, 480,
+                                                        rotation2_angles,
+                                                        shape_props,
+                                                        concrete_cover_props,
+                                                        start_hook,
+                                                        end_hook,
+                                                        start_hook_angle,
+                                                        end_hook_angle)
+
+
+        reinforcement = []
+        if shape1.IsValid():
+            reinforcement.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape1,
+                placement1_start_point,
+                placement1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance))
+
+        if shape2.IsValid():
+            reinforcement.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape2,
+                placement2_start_point,
+                placement2_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance))
+
+        return reinforcement
+
 
     def add_windows(self, build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness):
         p_x = build_ele.win_x.value
@@ -642,162 +929,3 @@ class CreateWall():
         
 
         return shading_back , shading_back2
-
-
-    def create_geometry(self, build_ele):
-        """
-        Create the element geometries
-
-        Args:
-            build_ele:  the building element.
-        """
-
-        #----------------- Extract palette parameter values
-
-        wall_length  = build_ele.Length1_1.value
-        wall_length2  = 1000
-        wall_width = build_ele.Width1_1.value
-        wall_thickness = build_ele.Thickness1_1.value
-
-        void_active = build_ele.chkb_win.value
-        door_active = build_ele.chkb_door.value
-
-        join1_type_added = build_ele.join1_type_active.value
-        join1_type_select = build_ele.join1_type.value
-
-        join2_type_added = build_ele.join2_type_active.value
-        join2_type_select = build_ele.join2_type.value
-
-        join3_type_added = build_ele.join3_type_active.value
-        join3_type_select = 1
-
-        join4_type_added = build_ele.join4_type_active.value
-        join4_type_select = 1
-
-        upper_shading_added = build_ele.upper_shading_active.value
-        lower_shading_added = build_ele.lower_shading_active.value
-        shading_back_added = build_ele.upper_shading_back_active.value
-        
-        
-
-
-        #------------------------------------ Create wall------------------------------------------#
-
-        #wall = AllplanGeo.Polyhedron3D.CreateCuboid(wall_length, wall_thickness, wall_width)
-        #trans_to_ref_point_1 = AllplanGeo.Matrix3D()
-        #trans_to_ref_point_1.Translate(AllplanGeo.Vector3D(0, 0, 0))
-        #wall = AllplanGeo.Transform(wall, trans_to_ref_point_1)
-
-        wall_point = AllplanGeo.Polygon3D()
-        wall_path_path = AllplanGeo.Polyline3D()
-
-        x_ref = 0
-        y_ref = 0
-        z_ref = 0
-
-        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
-        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref+wall_width)
-        wall_point += AllplanGeo.Point3D(x_ref, y_ref+wall_thickness, z_ref+wall_width)
-        wall_point += AllplanGeo.Point3D(x_ref, y_ref+wall_thickness, z_ref)
-        wall_point += AllplanGeo.Point3D(x_ref, y_ref, z_ref)
-
-        if not GeometryValidate.is_valid(wall_point):
-          return
-
-        wall_path_path += AllplanGeo.Point3D(x_ref,y_ref,z_ref)
-        wall_path_path += AllplanGeo.Point3D(x_ref+wall_length,y_ref,z_ref)
-        wall_path_path += AllplanGeo.Point3D(x_ref+wall_length,y_ref+wall_length2,z_ref)
-
-        err, wall = AllplanGeo.CreatePolyhedron(wall_point, wall_path_path)
-        if not GeometryValidate.polyhedron(err):
-            return
-        
-
-        #----------------------------Create Component Property--------------------------------------#
-        com_prop_base_bodies = AllplanBaseElements.CommonProperties()
-        com_prop_base_bodies.GetGlobalProperties()
-        com_prop_base_bodies.Color = 1
-
-        com_prop_stroke = AllplanBaseElements.CommonProperties()
-        com_prop_stroke.GetGlobalProperties()
-        com_prop_stroke.Stroke = 9 # dots
-        com_prop_stroke.HelpConstruction = True
-
-        #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, wall))
-
-        #------------------ Append Element to Wall -------------------------------------------------#
-        if (void_active) :
-          void = self.add_windows(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,void)
-
-        if (door_active) :
-          door = self.add_door(build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,door)
-
-        if (join1_type_added) :
-          join1 = self.add_joins_left(build_ele, com_prop_stroke,type=join1_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,join1)
-
-        if (join2_type_added) :
-          join2 = self.add_joins_right(build_ele, com_prop_stroke,type=join2_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,join2)
-
-        if (upper_shading_added) :
-          upper_shading = self.add_upper_shading(build_ele, com_prop_stroke)
-          err, wall = AllplanGeo.MakeUnion(wall ,upper_shading)
-
-        if (lower_shading_added) :
-          lower_shading = self.add_lower_shading(build_ele, com_prop_stroke)
-          err, wall = AllplanGeo.MakeUnion(wall ,lower_shading)
-
-        if (join3_type_added) :
-          upper_join = self.add_upper_join(build_ele, com_prop_stroke, type=join3_type_select)
-          err, wall = AllplanGeo.MakeUnion(wall ,upper_join)
-
-        if (join4_type_added) :
-          lower_join = self.add_lower_join(build_ele, com_prop_stroke, type=join4_type_select)
-          err, wall = AllplanGeo.MakeSubtraction(wall ,lower_join)
-
-        if (shading_back_added) :
-          shading_back, shading_back2 = self.add_shading_back(build_ele, com_prop_stroke)
-
-          err, wall = AllplanGeo.MakeUnion(wall ,shading_back)
-          err, wall = AllplanGeo.MakeUnion(wall ,shading_back2)
-
-        #---------------------------------------Add Wall Element----------------------------------------#
-        self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_base_bodies, wall))
-
-
-        #-----------------------------------------------------------------------------------------------#
-        #-----------------------------------------wall handle-------------------------------------------#
-        #-----------------------------------------------------------------------------------------------#
-
-        origin = AllplanGeo.Point3D(0, 0, 0)
-        wall_plength = AllplanGeo.Point3D(wall_length, 0, 0)
-        wall_pwidth = AllplanGeo.Point3D(0, 0, wall_width)
-        wall_pthickness = AllplanGeo.Point3D(0, wall_thickness, 0)
-
-        handle_walllength = HandleProperties("WallMoveLength",
-                                   wall_plength,
-                                   origin,
-                                   [("Length1_1", HandleDirection.x_dir)],
-                                   HandleDirection.x_dir,
-                                   True)
-        self.handle_list.append(handle_walllength)
-
-        handle_wallwidth = HandleProperties("WallMoveWidth",
-                                   wall_pwidth,
-                                   origin,
-                                   [("Width1_1", HandleDirection.z_dir)],
-                                   HandleDirection.z_dir,
-                                   True)
-        self.handle_list.append(handle_wallwidth)
-
-        handle_wallthickness = HandleProperties("WallMoveThickness",
-                                   wall_pthickness,
-                                   origin,
-                                   [("Thickness1_1", HandleDirection.y_dir)],
-                                   HandleDirection.y_dir,
-                                   True)
-        self.handle_list.append(handle_wallthickness)
-
