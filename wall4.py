@@ -701,10 +701,10 @@ class CreateWall():
         join2_type_select = build_ele.join2_type.value
 
         join3_type_added = build_ele.join3_type_active.value
-        join3_type_select = build_ele.join3_type.value
+        join3_type_select = 1
 
         join4_type_added = build_ele.join4_type_active.value
-        join4_type_select = build_ele.join4_type.value
+        join4_type_select = 1
 
         upper_shading_added = build_ele.upper_shading_active.value
         lower_shading_added = build_ele.lower_shading_active.value
