@@ -134,7 +134,6 @@ class CreateWall():
             tuple  with created elements and handles.
         """
         self.wall_length  = build_ele.Length1_1.value
-        self.wall_length2  = 1000
         self.wall_width = build_ele.Width1_1.value
         self.wall_thickness = build_ele.Thickness1_1.value
 
