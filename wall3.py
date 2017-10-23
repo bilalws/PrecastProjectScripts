@@ -369,22 +369,30 @@ class CreateWall():
         y3_ref= 0
         z3_ref= 0
 
+        x4_ref= 0 -self.windows_refx - self.windows_length
+        y4_ref= 0
+        z4_ref= 0
+
+        x4_2_ref= 0 - self.windows_refx - self.windows_length
+        y4_2_ref= 0 + self.wall_thickness
+        z4_2_ref= 0
+
         offset_x = 0
         offset_y = 30
-        offset_z = 10
+        offset_z = 0
 
         hori_longbar_1 = self.wall_length - 60 #60 just manualy adjust
         hori_longbar_2 = self.wall_length - self.windows_refx - self.windows_length - 60 #60 just manualy adjust
         hori_longbar_3 = self.wall_length - self.windows_refx - self.windows_length
-        hori_longbar_4 = self.wall_length - self.windows_refx - self.windows_length + 20
+        hori_longbar_4 = self.wall_length - self.windows_refx - self.windows_length +20
 
-        z_end_point_offset = 100
+        z_end_point_offset = 20
         hori_longbar_start_point1 = AllplanGeo.Point3D(x1_ref-offset_x      , y1_ref+offset_y   , z1_ref + offset_z)
         hori_longbar_end_point1 = AllplanGeo.Point3D(x1_ref-offset_x        , y1_ref+offset_y   , z1_ref + self.windows_refz - z_end_point_offset - offset_z)
 
         z1_2_offset = 20
-        hori_longbar_start_point1_2 = AllplanGeo.Point3D(x1_2_ref-offset_x      , y1_2_ref-offset_y   , z1_2_ref + offset_z + z1_2_offset)
-        hori_longbar_end_point1_2 = AllplanGeo.Point3D(x1_2_ref-offset_x        , y1_2_ref-offset_y   , z1_2_ref + self.windows_refz - z_end_point_offset + offset_z + z1_2_offset)
+        hori_longbar_start_point1_2 = AllplanGeo.Point3D(x1_2_ref-offset_x  , y1_2_ref-offset_y , z1_2_ref + offset_z + z1_2_offset)
+        hori_longbar_end_point1_2 = AllplanGeo.Point3D(x1_2_ref-offset_x    , y1_2_ref-offset_y , z1_2_ref + self.windows_refz - z_end_point_offset + offset_z + z1_2_offset)
 
         hori_longbar_start_point2 = AllplanGeo.Point3D(x2_ref-offset_x      , y2_ref+offset_y   , z2_ref + offset_z)
         hori_longbar_end_point2 = AllplanGeo.Point3D(x2_ref-offset_x        , y2_ref+offset_y   , z2_ref + self.windows_width - offset_z)
@@ -392,11 +400,11 @@ class CreateWall():
         hori_longbar_start_point3 = AllplanGeo.Point3D(x3_ref-offset_x      , y3_ref+offset_y   , z3_ref + self.windows_refz + self.windows_width + offset_z)
         hori_longbar_end_point3 = AllplanGeo.Point3D(x3_ref-offset_x        , y3_ref+offset_y   , z3_ref + self.wall_width - offset_z)
 
-        hori_longbar_start_point4 = AllplanGeo.Point3D(x3_ref-offset_x      , y3_ref+offset_y   , z3_ref + self.windows_refz + self.windows_width + offset_z)
-        hori_longbar_end_point4 = AllplanGeo.Point3D(x3_ref-offset_x        , y3_ref+offset_y   , z3_ref + self.wall_width - offset_z)
+        hori_longbar_start_point4 = AllplanGeo.Point3D(x4_ref-offset_x      , y4_ref+offset_y   , z4_ref + offset_z)
+        hori_longbar_end_point4 = AllplanGeo.Point3D(x4_ref-offset_x        , y4_ref+offset_y   , z4_ref + self.wall_width - offset_z)
 
-        hori_longbar_start_poin5 = AllplanGeo.Point3D(x3_ref-offset_x      , y3_ref+offset_y   , z3_ref + self.windows_refz + self.windows_width + offset_z)
-        hori_longbar_end_point5 = AllplanGeo.Point3D(x3_ref-offset_x        , y3_ref+offset_y   , z3_ref + self.wall_width - offset_z)
+        hori_longbar_start_point4_2 = AllplanGeo.Point3D(x4_2_ref-offset_x      , y4_2_ref-offset_y   , z4_2_ref + offset_z)
+        hori_longbar_end_point4_2 = AllplanGeo.Point3D(x4_2_ref-offset_x        , y4_2_ref-offset_y   , z4_2_ref + self.wall_width - offset_z)
 
 
 
@@ -435,7 +443,7 @@ class CreateWall():
                                                                                shape_props_longbar,
                                                                                concrete_cover_props,
                                                                                start_hook=0,
-                                                                               end_hook=self.wall_length2,
+                                                                               end_hook=self.wall_length2-40,
                                                                                start_angle=0,
                                                                                end_angle=end_angle)
 
@@ -444,7 +452,7 @@ class CreateWall():
                                                                                shape_props_longbar,
                                                                                concrete_cover_props,
                                                                                start_hook=0,
-                                                                               end_hook=self.wall_length2,
+                                                                               end_hook=self.wall_length2-80,
                                                                                start_angle=0,
                                                                                end_angle=end_angle)
 
@@ -482,16 +490,16 @@ class CreateWall():
 
         rein_hori_longbar.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
                 1, hori_longbar_shape3,
-                hori_longbar_start_point3,
-                hori_longbar_end_point3,
+                hori_longbar_start_point4,
+                hori_longbar_end_point4,
                 self.concrete_cover,
                 self.concrete_cover,
                 hori_longbarlongbar_dist) )
 
         rein_hori_longbar.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
                 1, hori_longbar_shape4,
-                hori_longbar_start_point3,
-                hori_longbar_end_point3,
+                hori_longbar_start_point4_2,
+                hori_longbar_end_point4_2,
                 self.concrete_cover,
                 self.concrete_cover,
                 hori_longbarlongbar_dist) )
