@@ -108,10 +108,10 @@ class CreateWall():
         self.windows_refz = build_ele.win_z.value
         self.windows_width = build_ele.win_width.value
 
-        #----------------- Extract reinforcement parameter values
+        #001----------------- Extract reinforcement parameter values
         self.rein = True
         self.concrete_grade        = 4
-        self.concrete_cover        = 25.0
+        self.concrete_cover        = 0
         self.diameter              = 10.0
         self.bending_roller        = 4.0
         self.steel_grade           = 4
@@ -123,29 +123,30 @@ class CreateWall():
         self.end_hook              = True
         self.end_hook_angle        = AllplanGeo.Angle()
 
+        #001
+
         self.create_geometry(build_ele)
 
         views = [View2D3D (self.model_ele_list)]
 
         pythonpart = None
 
+        #002
+        reinforcement = []
+
         if (self.rein) :
             reinforcement = self.create_reinforcement()
-            pythonpart = PythonPart ("Wall Creation",
+        #002
+
+        #003
+        pythonpart = PythonPart ("Wall Creation",
                                  parameter_list = build_ele.get_params_list(),
                                  hash_value     = build_ele.get_hash(),
                                  python_file    = build_ele.pyp_file_name,
                                  views          = views,
                                  reinforcement  = reinforcement)
-        else :
-            pythonpart = PythonPart ("Wall Creation",
-                                 parameter_list = build_ele.get_params_list(),
-                                 hash_value     = build_ele.get_hash(),
-                                 python_file    = build_ele.pyp_file_name,
-                                 views          = views)
 
-
-
+        #003
         self.model_ele_list = pythonpart.create()
 
         return (self.model_ele_list, self.handle_list)
@@ -341,7 +342,7 @@ class CreateWall():
         x1_ref= 0
         y1_ref= 0
         z1_ref= self.windows_refz + self.windows_width + offset
-        placement1_length = self.wall_length + 20 - self.wall_thickness - 130    #130 is depth of shading back
+        placement1_length = self.wall_length + 0 - self.wall_thickness - 130    #130 is depth of shading back
 
         placement1_start_point = AllplanGeo.Point3D(x1_ref, y1_ref, z1_ref)
         placement1_end_point = AllplanGeo.Point3D(x1_ref+placement1_length, y1_ref, z1_ref)
@@ -358,7 +359,7 @@ class CreateWall():
         rotation2_angles = RotationAngles(90, 0, 180)
 
         
-        shape1 = GeneralShapeBuilder.create_open_stirrup(250, 480,
+        shape1 = GeneralShapeBuilder.create_open_stirrup(230, 450,
                                                         rotation1_angles,
                                                         shape_props,
                                                         concrete_cover_props,
@@ -367,7 +368,7 @@ class CreateWall():
                                                         start_hook_angle,
                                                         end_hook_angle)
 
-        shape2 = GeneralShapeBuilder.create_open_stirrup(250, 480,
+        shape2 = GeneralShapeBuilder.create_open_stirrup(230, 450,
                                                         rotation2_angles,
                                                         shape_props,
                                                         concrete_cover_props,

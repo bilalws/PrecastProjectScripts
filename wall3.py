@@ -3,6 +3,7 @@ Example Script for PrecastWallBKK
 """
 
 import NemAll_Python_Geometry as AllplanGeo
+import NemAll_Python_Reinforcement as AllplanReinf
 import NemAll_Python_BaseElements as AllplanBaseElements
 import NemAll_Python_BasisElements as AllplanBasisElements
 import GeometryValidate as GeometryValidate
