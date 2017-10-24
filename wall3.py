@@ -137,8 +137,9 @@ class CreateWall():
         self.wall_length2  = 860
         self.wall_angle  = 40
 
-        self.wall_l2_x = 552.8
-        self.wall_l2_y = 658.8
+        self.wall_l2_x  = 552.8
+        self.wall_l2_y  = 658.8
+        self.theta      = 40
 
         self.wall_width = build_ele.Width1_1.value
         self.wall_thickness = build_ele.Thickness1_1.value
@@ -149,6 +150,12 @@ class CreateWall():
         self.windows_width = build_ele.win_width.value
         self.windows_length  = build_ele.win_length.value
 
+        # get shading back
+        self.shading_back_l1=build_ele.shading_back_l1.value
+        self.shading_back_l2=build_ele.shading_back_l2.value
+        self.shading_back_h1=build_ele.shading_back_h1.value
+        self.shading_back_h2=build_ele.shading_back_h2.value
+        self.shading_back_d=build_ele.shading_back_depth.value
 
         # get rein
         self.rein = True
@@ -198,14 +205,122 @@ class CreateWall():
         self.start_hook_angle.Deg = 180
         self.end_hook_angle.Deg = 180
 
-
-        #reinforcement.extend( self.create_rein_shading_back() )
         reinforcement.extend( self.create_rein_wall() )
+        reinforcement.extend( self.create_rein_shading_back() )
 
         return reinforcement
 
     def create_rein_shading_back(self):
         rein_shading_back = []
+
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_prop_stirrup = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller, self.steel_grade,
+                                                         self.concrete_grade, AllplanReinf.BendingShapeType.Stirrup)
+
+        shape_props_longbar = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+
+        y1_cover_offset = 30
+        x_cover_offset_end_shift = 120
+
+        x_cover_offset = 20
+        z_cover_offset = 50
+
+        x1_ref= 0
+        y1_ref= 0 + y1_cover_offset
+        z1_ref= self.windows_refz + self.windows_width + z_cover_offset
+        stirrup_length = self.wall_length
+
+        stirrup_start_point = AllplanGeo.Point3D(x1_ref-x_cover_offset, y1_ref, z1_ref)
+        stirrup_end_point = AllplanGeo.Point3D(x1_ref-stirrup_length+x_cover_offset_end_shift, y1_ref, z1_ref)
+        stirrup_angles = RotationAngles(90, 0, 90)
+
+        
+        stirrup_shape = GeneralShapeBuilder.create_open_stirrup(200, 420,
+                                                        stirrup_angles,
+                                                        shape_prop_stirrup,
+                                                        concrete_cover_props,
+                                                        -1,
+                                                        -1)
+
+        rein_shading_back.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, stirrup_shape,
+                stirrup_start_point,
+                stirrup_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance))
+
+
+        xy_cover_offset = 20
+        xy_cover_offset_shift = 80
+
+        x1_2ref= 0-self.wall_length + xy_cover_offset
+        y1_2ref= 0 + xy_cover_offset
+        z1_2ref= self.windows_refz + self.windows_width
+
+
+        stirrup_start_point1_2 = AllplanGeo.Point3D(x1_2ref -xy_cover_offset_shift, y1_2ref+xy_cover_offset_shift, z1_2ref)
+        stirrup_end_point1_2 = AllplanGeo.Point3D(x1_2ref-self.wall_l2_x , y1_2ref+self.wall_l2_y, z1_2ref)
+
+        stirrup_angles1_2 = RotationAngles(90, 0, 90-(90-self.theta))
+
+        stirrup_shape1_2 = GeneralShapeBuilder.create_open_stirrup(200, 420,
+                                                        stirrup_angles1_2,
+                                                        shape_prop_stirrup,
+                                                        concrete_cover_props,
+                                                        -1,
+                                                        -1)
+
+
+        rein_shading_back.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, stirrup_shape1_2,
+                stirrup_start_point1_2,
+                stirrup_end_point1_2,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance))
+
+        #rein shading horizontal longbar
+
+        x2_cover_offset = 20
+        z2_cover_offset = z_cover_offset + 10
+
+        x2_ref= 0
+        y2_ref= 0
+        z2_ref= self.windows_refz + self.windows_width + z2_cover_offset
+
+        y_cover_offset = 20
+
+        hori_longbar_1 = self.wall_length - 40 #40 just manualy adjust
+        hori_longbar_start_point1 = AllplanGeo.Point3D(x2_ref - x2_cover_offset      , y2_ref + y_cover_offset  , z2_ref)
+        hori_longbar_end_point1 = AllplanGeo.Point3D(x2_ref       , y2_ref+self.wall_thickness +  self.shading_back_d - y_cover_offset, z2_ref)
+
+        hori_longbarlongbar_angles = RotationAngles(0, 0, 180)
+        hori_longbarlongbar_dist = 100
+
+        end_angle = -90 + self.theta
+
+        hori_longbar_shape1 = create_longitudinal_shape_with_hooks_edit(hori_longbar_1,
+                                                                               hori_longbarlongbar_angles,
+                                                                               shape_props_longbar,
+                                                                               concrete_cover_props,
+                                                                               start_hook=0,
+                                                                               end_hook=self.wall_length2,
+                                                                               start_angle=0,
+                                                                               end_angle=end_angle)
+
+        rein_shading_back.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, hori_longbar_shape1,
+                hori_longbar_start_point1,
+                hori_longbar_end_point1,
+                self.concrete_cover,
+                self.concrete_cover,
+                hori_longbarlongbar_dist) )
 
         return rein_shading_back
 
@@ -219,10 +334,47 @@ class CreateWall():
 
     def create_rein_ver_stirrup(self):
         rein_ver_stirrup = []
+
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_prop_stirrup = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller, self.steel_grade,
+                                                         self.concrete_grade, AllplanReinf.BendingShapeType.Stirrup)
+
+
+        z_cover_offset = 100
+        y_cover_offset = 20
+
+        x1_ref= 0 -self.windows_refx
+        y1_ref= 0 
+        z1_ref= 0 +self.windows_refz -z_cover_offset
+
+        stirrup_start_point = AllplanGeo.Point3D(x1_ref, y1_ref + y_cover_offset, z1_ref)
+        stirrup_end_point = AllplanGeo.Point3D(x1_ref - self.windows_length , y1_ref + y_cover_offset, z1_ref)
+        stirrup_angles = RotationAngles(-90, 0, 90)
+
+        stirrup_shape = GeneralShapeBuilder.create_open_stirrup(self.wall_thickness - y_cover_offset*2, z1_ref - 10,
+                                                        stirrup_angles,
+                                                        shape_prop_stirrup,
+                                                        concrete_cover_props,
+                                                        -1,
+                                                        -1)
+
+        rein_ver_stirrup.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, stirrup_shape,
+                stirrup_start_point,
+                stirrup_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance))
+
+
         return rein_ver_stirrup
 
     def create_rein_hori_stirrup(self):
         rein_hori_stirrup = []
+        
+
         return rein_hori_stirrup
 
     def create_rein_ver_longbar(self):
@@ -381,7 +533,7 @@ class CreateWall():
         offset_y = 30
         offset_z = 0
 
-        hori_longbar_1 = self.wall_length - 60 #60 just manualy adjust
+        hori_longbar_1 = self.wall_length - 40 #40 just manualy adjust
         hori_longbar_2 = self.wall_length - self.windows_refx - self.windows_length - 60 #60 just manualy adjust
         hori_longbar_3 = self.wall_length - self.windows_refx - self.windows_length
         hori_longbar_4 = self.wall_length - self.windows_refx - self.windows_length +20
