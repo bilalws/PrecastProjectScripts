@@ -150,6 +150,12 @@ class CreateWall():
         self.shading_t=build_ele.shading1_thickness.value
         self.shading_l=build_ele.shading1_length.value
 
+        #lower_shading get data
+        self.lower_shading_d=build_ele.shading2_depth.value
+        self.lower_shading_b=build_ele.shading2_b.value
+        self.lower_shading_t=build_ele.shading2_thickness.value
+        self.lower_shading_l=build_ele.shading2_length.value
+
         self.rein = True
         self.concrete_grade        = 4
         self.concrete_cover        = 0
@@ -284,10 +290,81 @@ class CreateWall():
 
 
         reinforcement.append( self.create_rein_shading() )
+        reinforcement.extend( self.create_rein_wall() )
 
         return reinforcement
 
+    def create_rein_wall(self):
+        rein_wall = []
 
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+        # horizontal
+        y1_cover_offset = 0
+
+        x1_ref= self.windows_refx
+        y1_ref= 0-self.lower_shading_d
+        z1_ref= self.windows_refz - (self.lower_shading_t)/2
+
+        hori_longbar_length1 = self.windows_length
+        hori_longbar_start_point1 = AllplanGeo.Point3D(x1_ref     , y1_ref + y1_cover_offset, z1_ref)
+        hori_longbar_end_point1 = AllplanGeo.Point3D(x1_ref        , y1_ref + self.lower_shading_d + self.wall_thickness - y1_cover_offset, z1_ref)
+
+        hori_longbarlongbar_angles = RotationAngles(0, 0, 0)
+
+        hori_longbarlongbar_dist = 100
+
+        hori_longbar_shape1 = create_longitudinal_shape_with_hooks_edit(hori_longbar_length1,
+                                                                               hori_longbarlongbar_angles,
+                                                                               shape_props_longbar,
+                                                                               concrete_cover_props)
+
+        rein_wall.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, hori_longbar_shape1,
+                hori_longbar_start_point1,
+                hori_longbar_end_point1,
+                self.concrete_cover,
+                self.concrete_cover,
+                hori_longbarlongbar_dist) )
+
+        # vertical
+        y2_cover_offset = 0
+        z2_cover_shift = 150
+        y2_cover_shift = 20
+
+        x2_ref= 0+self.windows_refx
+        y2_ref= 0+self.wall_thickness -y2_cover_shift
+        z2_ref= 0+z2_cover_shift
+
+        hori_longbar_length2 = self.windows_refz - (self.lower_shading_t/2) - z2_cover_shift + self.diameter*2
+        hori_longbar_start_point2 = AllplanGeo.Point3D(x2_ref     , y2_ref, z2_ref)
+        hori_longbar_end_point2 = AllplanGeo.Point3D(x2_ref + self.windows_length , y2_ref, z2_ref)
+
+        hori_longbarlongbar_angles2 = RotationAngles(180, -90, 0)
+
+
+        hori_longbar_shape2 = create_longitudinal_shape_with_hooks_edit(hori_longbar_length2,
+                                                                               hori_longbarlongbar_angles2,
+                                                                               shape_props_longbar,
+                                                                               concrete_cover_props,
+                                                                               start_hook=-1,
+                                                                               end_hook=self.wall_thickness,
+                                                                               start_angle=0,
+                                                                               end_angle=90)
+
+        rein_wall.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, hori_longbar_shape2,
+                hori_longbar_start_point2,
+                hori_longbar_end_point2,
+                self.concrete_cover,
+                self.concrete_cover,
+                hori_longbarlongbar_dist) )
+
+        return rein_wall
     def create_rein_shading(self):
         rein_shading = None
         concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
