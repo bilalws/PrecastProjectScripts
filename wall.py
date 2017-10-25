@@ -26,7 +26,6 @@ import math
 
 print('Load wall.py')
 
-
 def check_allplan_version(build_ele, version):
     """
     Check the current Allplan version

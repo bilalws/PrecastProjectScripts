@@ -10,6 +10,7 @@ import GeometryValidate as GeometryValidate
 
 import NemAll_Python_Utility
 
+import StdReinfShapeBuilder.ProfileReinfShapeBuilder as ProfileShapeBuilder
 import StdReinfShapeBuilder.GeneralReinfShapeBuilder as GeneralShapeBuilder
 import StdReinfShapeBuilder.LinearBarPlacementBuilder as LinearBarBuilder
 
@@ -20,6 +21,8 @@ from StdReinfShapeBuilder.RotationAngles import RotationAngles
 from HandleDirection import HandleDirection
 from HandleProperties import HandleProperties
 from PythonPart import View2D3D, PythonPart
+
+import math
 
 print('Load wall2.py')
 
@@ -71,6 +74,36 @@ def move_handle(build_ele, handle_prop, input_pnt, doc):
 
     return create_element(build_ele, doc)
 
+def create_longitudinal_shape_with_hooks_edit(length, model_angles,
+                                         shape_props,
+                                         concrete_cover_props,
+                                         start_hook=0,
+                                         end_hook=0,
+                                         start_angle=0,
+                                         end_angle=0):
+
+    shape_builder = AllplanReinf.ReinforcementShapeBuilder()
+
+    shape_builder.AddPoints([(AllplanGeo.Point2D(), concrete_cover_props.left),
+                             (AllplanGeo.Point2D(length, 0), concrete_cover_props.bottom),
+                             (concrete_cover_props.right)])
+
+    if start_hook == 0:
+        shape_builder.SetAnchorageHookStart(start_angle)
+    elif start_hook > 0:
+        shape_builder.SetHookStart(start_hook, start_angle, AllplanReinf.HookType.eAnchorage)
+
+    if end_hook == 0:
+        shape_builder.SetAnchorageHookEnd(end_angle)
+    elif end_hook > 0:
+        shape_builder.SetHookEnd(end_hook, end_angle, AllplanReinf.HookType.eAnchorage)
+
+    shape = shape_builder.CreateShape(shape_props)
+
+    if shape.IsValid() is True:
+        shape.Rotate(model_angles)
+
+    return shape
 
 class CreateWall():
     """
@@ -105,8 +138,17 @@ class CreateWall():
         self.wall_width = build_ele.Width1_1.value
         self.wall_thickness = build_ele.Thickness1_1.value
 
+        # windows get data
+        self.windows_refx = build_ele.win_x.value
         self.windows_refz = build_ele.win_z.value
         self.windows_width = build_ele.win_width.value
+        self.windows_length  = build_ele.win_length.value
+
+        #upper_shading get data
+        self.upper_shading_d=build_ele.shading1_depth.value
+        self.upper_shading_b=build_ele.shading1_b.value
+        self.upper_shading_t=build_ele.shading1_thickness.value
+        self.upper_shading_l=build_ele.shading1_length.value
 
         #001----------------- Extract reinforcement parameter values
         self.rein = True
@@ -339,27 +381,33 @@ class CreateWall():
         #offset from windows
         offset = 50
 
-        x1_ref= 0
-        y1_ref= 0
-        z1_ref= self.windows_refz + self.windows_width + offset
-        placement1_length = self.wall_length + 0 - self.wall_thickness - 130    #130 is depth of shading back
+        x1_cover_offset = 20
+        y1_cover_offset = 30
+        z1_cover_offset = 50
 
-        placement1_start_point = AllplanGeo.Point3D(x1_ref, y1_ref, z1_ref)
+        x_cover_offset_end_shift = 120
+
+        x1_ref= 0
+        y1_ref= 0 + y1_cover_offset
+        z1_ref= self.windows_refz + self.windows_width + z1_cover_offset + offset
+        placement1_length = self.wall_length + 0 - self.wall_thickness - self.upper_shading_d
+
+        placement1_start_point = AllplanGeo.Point3D(x1_ref + x1_cover_offset, y1_ref, z1_ref)
         placement1_end_point = AllplanGeo.Point3D(x1_ref+placement1_length, y1_ref, z1_ref)
         rotation1_angles = RotationAngles(90, 0, 90)
 
 
-        x2_ref= self.wall_length
+        x2_ref= self.wall_length - y1_cover_offset
         y2_ref= 0
-        z2_ref= self.windows_refz + self.windows_width + offset
+        z2_ref= z1_ref
         placement2_length = self.wall_length2
 
-        placement2_start_point = AllplanGeo.Point3D(x2_ref, y2_ref, z2_ref)
+        placement2_start_point = AllplanGeo.Point3D(x2_ref, y2_ref+x1_cover_offset, z2_ref)
         placement2_end_point = AllplanGeo.Point3D(x2_ref, y2_ref+placement2_length, z2_ref)
         rotation2_angles = RotationAngles(90, 0, 180)
 
         
-        shape1 = GeneralShapeBuilder.create_open_stirrup(230, 450,
+        shape1 = GeneralShapeBuilder.create_open_stirrup(200, 420,
                                                         rotation1_angles,
                                                         shape_props,
                                                         concrete_cover_props,
@@ -368,7 +416,7 @@ class CreateWall():
                                                         start_hook_angle,
                                                         end_hook_angle)
 
-        shape2 = GeneralShapeBuilder.create_open_stirrup(230, 450,
+        shape2 = GeneralShapeBuilder.create_open_stirrup(200, 420,
                                                         rotation2_angles,
                                                         shape_props,
                                                         concrete_cover_props,
@@ -397,7 +445,105 @@ class CreateWall():
                 self.concrete_cover,
                 self.distance))
 
+        reinforcement.extend( self.create_rein_shading() )
+
         return reinforcement
+
+    def create_rein_shading(self):
+        rein_shading = []
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_rein_shading = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        #shading1 rein
+        offset = 50
+
+        x_offset = 0
+        y_offset = 30
+        z_offset = 20
+
+        x_ref = 0
+        y_ref = -self.upper_shading_d + y_offset
+        z_ref = self.windows_refz + self.windows_width + offset + z_offset
+
+        rein_shading_length = self.upper_shading_b - z_offset*2
+
+        rein_shading_start_point = AllplanGeo.Point3D(x_ref, y_ref, z_ref)
+        rein_shading_end_point = AllplanGeo.Point3D(x_ref+self.wall_length, y_ref, z_ref)
+
+
+        theta = math.atan2(self.upper_shading_t-self.upper_shading_b,self.upper_shading_d)
+        theta = math.degrees(theta)
+        #NemAll_Python_Utility.ShowMessageBox('%6.2f' %theta,1)
+
+        #theta = 14.93
+
+        start_hook = -1
+        end_hook = 500
+        start_hook_angle  = 90
+        end_hook_angle = 90-theta
+
+        rein_shading_angles = RotationAngles(0, 270 , 0)
+        rein_shading_distance  = 200
+
+        rein_shading_shape = create_longitudinal_shape_with_hooks_edit(rein_shading_length,
+                                                                               rein_shading_angles,
+                                                                               shape_props_rein_shading,
+                                                                               concrete_cover_props,
+                                                                               start_hook = start_hook,
+                                                                               end_hook = end_hook,
+                                                                               start_angle = start_hook_angle,
+                                                                               end_angle = end_hook_angle)
+
+        if rein_shading_shape.IsValid():
+            rein_shading.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                    1, rein_shading_shape,
+                    rein_shading_start_point,
+                    rein_shading_end_point,
+                    self.concrete_cover,
+                    self.concrete_cover,
+                    rein_shading_distance) )
+
+        #shading2 rein
+
+        shading2_offset_y=180
+
+        x2_ref = self.wall_length + self.upper_shading_d - y_offset
+        y2_ref = 0
+        z2_ref = self.windows_refz + self.windows_width + offset + z_offset
+
+
+        rein_shading_start_point2 = AllplanGeo.Point3D(x2_ref, y2_ref, z2_ref)
+        rein_shading_end_point2 = AllplanGeo.Point3D(x2_ref, y2_ref+self.wall_length2-shading2_offset_y, z2_ref)
+
+
+        rein_shading_angles2 = RotationAngles(0, 270 , 90)
+
+        rein_shading_shape2 = create_longitudinal_shape_with_hooks_edit(rein_shading_length,
+                                                                               rein_shading_angles2,
+                                                                               shape_props_rein_shading,
+                                                                               concrete_cover_props,
+                                                                               start_hook = start_hook,
+                                                                               end_hook = end_hook,
+                                                                               start_angle = start_hook_angle,
+                                                                               end_angle = end_hook_angle)
+
+        if rein_shading_shape2.IsValid():
+            rein_shading.append(LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                    1, rein_shading_shape2,
+                    rein_shading_start_point2,
+                    rein_shading_end_point2,
+                    self.concrete_cover,
+                    self.concrete_cover,
+                    rein_shading_distance) )
+
+
+        #shading rein horizonta
+
+        return rein_shading
 
 
     def add_windows(self, build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness):
