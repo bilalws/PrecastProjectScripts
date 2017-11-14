@@ -134,7 +134,7 @@ class CreateWall():
             tuple  with created elements and handles.
         """
         self.wall_length  = build_ele.Length1_1.value
-        self.wall_length2  = 1000
+        self.wall_length2  = build_ele.Length1_2.value
         self.wall_width = build_ele.Width1_1.value
         self.wall_thickness = build_ele.Thickness1_1.value
 
@@ -142,7 +142,12 @@ class CreateWall():
         self.windows_refx = build_ele.win_x.value
         self.windows_refz = build_ele.win_z.value
         self.windows_width = build_ele.win_width.value
-        self.windows_length  = build_ele.win_length.value
+        #self.windows_length  = build_ele.win_length.value
+        self.windows_length  = self.wall_length - self.windows_refx
+        self.windows_length2  = build_ele.win_length2.value
+
+        self.shading_back_d=build_ele.shading_back_depth.value
+        self.shading_back_length=build_ele.shading_back_l1.value
 
         #upper_shading get data
         self.upper_shading_d=build_ele.shading1_depth.value
@@ -151,19 +156,24 @@ class CreateWall():
         self.upper_shading_l=build_ele.shading1_length.value
 
         #001----------------- Extract reinforcement parameter values
-        self.rein = True
+        self.rein = build_ele.chkb_rein.value
         self.concrete_grade        = 4
         self.concrete_cover        = 0
-        self.diameter              = 10.0
+        self.diameter              = build_ele.Diameter.value
         self.bending_roller        = 4.0
         self.steel_grade           = 4
-        self.distance              = 150.0
+        self.distance              = build_ele.Distance.value
         self.mesh_type             = None
 
         self.start_hook            = True
         self.start_hook_angle      = AllplanGeo.Angle()
         self.end_hook              = True
         self.end_hook_angle        = AllplanGeo.Angle()
+
+        self.distance_wiremesh = build_ele.Distance2.value
+        self.distance_longbar       = 50
+        self.distance_longbar_vshade= 90 #vshade rein@distance
+        self.distance_rein_shading  = 200
 
         #001
 
@@ -204,10 +214,10 @@ class CreateWall():
 
         #----------------- Extract palette parameter values
 
-        wall_length  = build_ele.Length1_1.value
-        wall_length2  = 1000
-        wall_width = build_ele.Width1_1.value
-        wall_thickness = build_ele.Thickness1_1.value
+        wall_length  = self.wall_length
+        wall_length2  = self.wall_length2
+        wall_width = self.wall_width
+        wall_thickness = self.wall_thickness
 
         void_active = build_ele.chkb_win.value
         door_active = build_ele.chkb_door.value
@@ -323,7 +333,10 @@ class CreateWall():
         #-----------------------------------------------------------------------------------------------#
 
         origin = AllplanGeo.Point3D(0, 0, 0)
+        origin2 = AllplanGeo.Point3D(wall_length, 0, 0)
+
         wall_plength = AllplanGeo.Point3D(wall_length, 0, 0)
+        wall_plength2 = AllplanGeo.Point3D(wall_length, wall_length2, 0)
         wall_pwidth = AllplanGeo.Point3D(0, 0, wall_width)
         wall_pthickness = AllplanGeo.Point3D(0, wall_thickness, 0)
 
@@ -334,6 +347,14 @@ class CreateWall():
                                    HandleDirection.x_dir,
                                    True)
         self.handle_list.append(handle_walllength)
+
+        handle_walllength2 = HandleProperties("WallMoveLength2",
+                                   wall_plength2,
+                                   origin2,
+                                   [("Length1_2", HandleDirection.y_dir)],
+                                   HandleDirection.y_dir,
+                                   True)
+        self.handle_list.append(handle_walllength2)
 
         handle_wallwidth = HandleProperties("WallMoveWidth",
                                    wall_pwidth,
@@ -365,6 +386,10 @@ class CreateWall():
 
         shape_props = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller, self.steel_grade,
                                                          self.concrete_grade, AllplanReinf.BendingShapeType.Stirrup)
+
+        shape_props_longbar = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
 
         start_hook = -1
         start_hook_angle  = 90
@@ -425,6 +450,26 @@ class CreateWall():
                                                         start_hook_angle,
                                                         end_hook_angle)
 
+        #LONG BAR
+        z_longbar_offset=30
+        y_longbar_offset=40
+
+        shading_back_lenght2 = self.wall_length-self.wall_thickness-self.shading_back_d
+        x2_ref= self.wall_length/2 - shading_back_lenght2/2
+        y2_ref= 0
+        z2_ref= self.windows_refz + self.windows_width + z_longbar_offset + offset
+        longbar_length = shading_back_lenght2   #130 is depth of shading back
+
+        longbar_start_point = AllplanGeo.Point3D(x2_ref, y2_ref+y_longbar_offset, z2_ref)
+        longbar_end_point = AllplanGeo.Point3D(x2_ref, y2_ref+self.shading_back_d+self.wall_thickness-y_longbar_offset, z2_ref)
+
+        longbar_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_length,
+                                                                               longbar_angles,
+                                                                               shape_props_longbar,
+                                                                               concrete_cover_props)
+
 
         reinforcement = []
         if shape1.IsValid():
@@ -436,16 +481,49 @@ class CreateWall():
                 self.concrete_cover,
                 self.distance))
 
-        if shape2.IsValid():
+        if shape_longbar.IsValid():
             reinforcement.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
-                1, shape2,
-                placement2_start_point,
-                placement2_end_point,
+                1, shape_longbar,
+                longbar_start_point,
+                longbar_end_point,
                 self.concrete_cover,
                 self.concrete_cover,
-                self.distance))
+                self.distance_longbar))
+
+        # if shape2.IsValid():
+        #     reinforcement.append (LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+        #         1, shape2,
+        #         placement2_start_point,
+        #         placement2_end_point,
+        #         self.concrete_cover,
+        #         self.concrete_cover,
+        #         self.distance))
 
         reinforcement.extend( self.create_rein_shading() )
+
+        reinforcement.append( self.create_longbar_wiremesh1() )
+        reinforcement.append( self.create_longbar_wiremesh2() )
+        # reinforcement.append( self.create_longbar_wiremesh3() )
+        # reinforcement.append( self.create_longbar_wiremesh4() )
+        reinforcement.append( self.create_longbar_wiremesh5() )
+        reinforcement.append( self.create_longbar_wiremesh6() )
+
+        #create_longbar_wiremesh_h1
+
+        reinforcement.append( self.create_longbar_wiremesh_h1() )
+        reinforcement.append( self.create_longbar_wiremesh_h2() )
+        # reinforcement.append( self.create_longbar_wiremesh_h3() )
+        # reinforcement.append( self.create_longbar_wiremesh_h4() )
+        reinforcement.append( self.create_longbar_wiremesh_h5() )
+        reinforcement.append( self.create_longbar_wiremesh_h6() )
+        #create_longbar_wiremesh_angle
+        reinforcement.append( self.create_longbar_wiremesh_angle1() )
+        reinforcement.append( self.create_longbar_wiremesh_angle2() )
+        reinforcement.append( self.create_longbar_wiremesh_angle3() )
+        reinforcement.append( self.create_longbar_wiremesh_angle_w1() )
+        reinforcement.append( self.create_longbar_wiremesh_angle_w2() )
+        reinforcement.append( self.create_longbar_wiremesh_angle_w3() )
+        reinforcement.append( self.create_longbar_wiremesh_angle_w4() )
 
         return reinforcement
 
@@ -546,15 +624,1098 @@ class CreateWall():
         return rein_shading
 
 
-    def add_windows(self, build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness):
-        p_x = build_ele.win_x.value
-        p_y = 0
-        p_z = build_ele.win_z.value
+    def create_longbar_wiremesh1(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
 
-        void_length  = build_ele.win_length.value
-        void_width = build_ele.win_width.value
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        wiremesh1_x1_length = self.wall_length - self.windows_length
+        longbar_wiremesh1_length = self.wall_width -1    #130 is depth of shading back
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh2(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 50
+        wiremesh1_depth = 0
+
+        #0 point to start windows
+        wiremesh1_x1_length = self.wall_length - self.windows_length
+        longbar_wiremesh1_length = self.wall_width -1    #130 is depth of shading back
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh3(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<---|--->|    |
+        wiremesh1_x_ref= self.windows_refx + self.windows_length
+        #|<---|----|--->|
+        wiremesh1_x1_length = self.wall_length-wiremesh1_x_ref
+
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_width -1    #130 is depth of shading back
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh4(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+       #|<---|--->|    |
+        wiremesh1_x_ref= self.windows_refx + self.windows_length
+        #|<---|----|--->|
+        wiremesh1_x1_length = self.wall_length-wiremesh1_x_ref
+
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 50
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_width -1    #130 is depth of shading back
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh5(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.wall_length - self.windows_length
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_refz-10    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh6(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.wall_length - self.windows_length
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 50
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_refz-60    #130 is depth of shading back
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref+wiremesh1_x1_length, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+
+    def create_longbar_wiremesh_h1(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.wall_width
+
+        #
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length - self.windows_length    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_h_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_h2(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.wall_width
+
+        #
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length - self.windows_length    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_h_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_h3(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx + self.windows_length
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.wall_length
+        #------
+        wiremesh1_h_width = self.wall_width
+
+        #
+
+        
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length - (self.windows_refx + self.windows_length)    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_h_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_h4(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx + self.windows_length
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.wall_length
+        #------
+        wiremesh1_h_width = self.wall_width
+
+        #
+
+        
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length - (self.windows_refx + self.windows_length ) 
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_h_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_h5(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+
+        #
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length  - 30   
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref+wiremesh1_depth, wiremesh1_h_width-20)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_h6(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        wiremesh1_x_ref= self.windows_refx
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+
+        #
+
+        wiremesh1_x_ref= 0
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length  - 30  
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref+50)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_h_width-20)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 0)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle1(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - self.wall_thickness + angle_covering
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+
+        #
+
+        
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length2 - (self.wall_thickness + angle_covering)  
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref+50)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_h_width-20)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle2(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - angle_covering
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+
+        #
+
+        
+        wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.wall_length2 - (self.wall_thickness + angle_covering)  
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_z_ref+50)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_thickness - wiremesh1_y_ref, wiremesh1_h_width-20)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    #Vertical Rebar 
+    def create_longbar_wiremesh_angle3(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - angle_covering
+                
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        wiremesh1_y_ref= 0
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_refz-10    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_length2, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle4(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=0
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - (self.wall_thickness + angle_covering)
+                
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        wiremesh1_y_ref= 0
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_refz-10    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_length2, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    #Start from windows
+    def create_longbar_wiremesh_angle_w1(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=60
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - angle_covering
+                
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        #wiremesh1_y_ref= self.wall_length2-240
+        wiremesh1_y_ref= self.windows_length2
+
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_width    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_length2- y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle_w2(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=60
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - self.wall_thickness + angle_covering
+                
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+
+        #wiremesh1_y_ref= self.wall_length2-240
+        wiremesh1_y_ref= self.windows_length2
+        wiremesh1_z_ref= self.windows_refz
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        longbar_wiremesh1_length = self.windows_width    
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, self.wall_length2-y_longbar_wiremesh1_offset, wiremesh1_z_ref)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_z_ref)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(0, -90 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+        # Longbar Vertical Shading End-01
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle_w3(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=60
+
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - self.wall_thickness + angle_covering
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+
+        wiremesh1_y_ref= self.windows_length2
+        #
+
+        
+        #wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        #longbar_wiremesh1_length = 200
+        longbar_wiremesh1_length = self.wall_length2 - self.windows_length2 -y_longbar_wiremesh1_offset
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_h_width)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, self.windows_refz + self.windows_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def create_longbar_wiremesh_angle_w4(self):
+        longbar_wiremesh1 = None
+        concrete_cover_props = ConcreteCoverProperties(self.concrete_cover, self.concrete_cover,
+                                                       self.concrete_cover, self.concrete_cover)
+
+        shape_props_longbar_wiremesh1 = ReinforcementShapeProperties.rebar(self.diameter, self.bending_roller,
+                                                         self.steel_grade, self.concrete_grade,
+                                                         AllplanReinf.BendingShapeType.LongitudinalBar)
+
+        # Longbar Vertical Shading Start-01
+        z_longbar_wiremesh1_offset=30
+        y_longbar_wiremesh1_offset=60
+
+
+        #|<-->|    |    |
+        angle_covering = 30
+        wiremesh1_x_ref= self.wall_length - angle_covering
+        #|<---|--->|    |
+        wiremesh1_x1_length = self.windows_length
+        #------
+        wiremesh1_h_width = self.windows_refz
+        wiremesh1_y_ref= self.windows_length2
+        #
+
+        
+        #wiremesh1_y_ref= 30
+        wiremesh1_z_ref= 0
+        wiremesh1_depth = 0
+        #0 point to start windows
+        
+
+
+        #longbar_wiremesh1_length = 200
+        longbar_wiremesh1_length = self.wall_length2 - self.windows_length2 -y_longbar_wiremesh1_offset
+
+        longbar_wiremesh1_start_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, wiremesh1_h_width)
+        longbar_wiremesh1_end_point = AllplanGeo.Point3D(wiremesh1_x_ref, wiremesh1_y_ref, self.windows_refz + self.windows_width)
+        #Edit Z 90
+        longbar_wiremesh1_angles = RotationAngles(90, 0 , 90)
+
+        shape_longbar_wiremesh1 = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(longbar_wiremesh1_length,
+                                                                               longbar_wiremesh1_angles,
+                                                                               shape_props_longbar_wiremesh1,
+                                                                               concrete_cover_props)
+
+
+
+
+        if shape_longbar_wiremesh1.IsValid():
+          longbar_wiremesh1 = LinearBarBuilder.create_linear_bar_placement_from_to_by_dist(
+                1, shape_longbar_wiremesh1,
+                longbar_wiremesh1_start_point,
+                longbar_wiremesh1_end_point,
+                self.concrete_cover,
+                self.concrete_cover,
+                self.distance_wiremesh)
+
+        return longbar_wiremesh1
+
+    def add_windows(self, build_ele, com_prop_stroke, wall_length, wall_width, wall_thickness):
+        p_x = self.windows_refx
+        p_y = 0
+        p_z = self.windows_refz
+
+        void_length  = self.windows_length
+        void_width = self.windows_width
         #void_thickness = wall_thickness
-        void_thickness = self.wall_length2-240
+        void_thickness = self.windows_length2
 
         void = AllplanGeo.Polyhedron3D.CreateCuboid(void_length, void_thickness, void_width)
         trans_to_ref_point_2 = AllplanGeo.Matrix3D()
@@ -569,18 +1730,22 @@ class CreateWall():
         origin = AllplanGeo.Point3D(0, 0, 0)
 
         originwin = AllplanGeo.Point3D(p_x, 0, p_z)
-        win_plength = AllplanGeo.Point3D(p_x+void_length, 0, p_z)
-        win_pwidth = AllplanGeo.Point3D(p_x, 0, p_z+void_width)
-        win_pointx = AllplanGeo.Point3D(p_x+void_length/2, 0, p_z)
-        win_pointz = AllplanGeo.Point3D(p_x, 0, p_z+void_width/2)
+        originwin2 = AllplanGeo.Point3D(self.wall_length, 0, p_z)
+        originwinx = AllplanGeo.Point3D(0, 0, p_z)
+        originwinz = AllplanGeo.Point3D(p_x+void_length/2, 0, 0)
 
-        handle_winlength = HandleProperties("windowsMoveLength",
-                                   win_plength,
-                                   originwin,
-                                   [("win_length", HandleDirection.x_dir)],
-                                   HandleDirection.x_dir,
+        win_plength2 = AllplanGeo.Point3D(self.wall_length, void_thickness, p_z)
+        win_pwidth = AllplanGeo.Point3D(p_x, 0, p_z+void_width)
+        win_pointx = AllplanGeo.Point3D(p_x, 0, p_z)
+        win_pointz = AllplanGeo.Point3D(p_x+void_length/2, 0, p_z)
+
+        handle_winlength2 = HandleProperties("windowsMoveLength",
+                                   win_plength2,
+                                   originwin2,
+                                   [("win_length2", HandleDirection.y_dir)],
+                                   HandleDirection.y_dir,
                                    True)
-        self.handle_list.append(handle_winlength)
+        self.handle_list.append(handle_winlength2)
 
         handle_winwidth = HandleProperties("windowsMoveWidth",
                                    win_pwidth,
@@ -592,7 +1757,7 @@ class CreateWall():
 
         handle_winx = HandleProperties("windowsMoveX",
                                    win_pointx,
-                                   originwin,
+                                   originwinx,
                                    [("win_x", HandleDirection.x_dir)],
                                    HandleDirection.x_dir,
                                    False)
@@ -600,7 +1765,7 @@ class CreateWall():
 
         handle_winz = HandleProperties("windowsMoveZ",
                                    win_pointz,
-                                   origin,
+                                   originwinz,
                                    [("win_z", HandleDirection.z_dir)],
                                    HandleDirection.z_dir,
                                    False)
@@ -898,7 +2063,7 @@ class CreateWall():
         #upper_shading=0
 
         wall_length  = build_ele.Length1_1.value
-        wall_length2  = 1000
+        wall_length2  = self.wall_length2
 
         shading_d=build_ele.shading1_depth.value
         shading_b=build_ele.shading1_b.value
@@ -937,13 +2102,20 @@ class CreateWall():
         if not GeometryValidate.polyhedron(err):
             return        
         #self.model_ele_list.append(AllplanBasisElements.ModelElement3D(com_prop_stroke, upper_shading))
+
+        ################################################################################################
+        ########################################### upper shading handle ###############################
+        ################################################################################################
+
+        
+
         return upper_shading
 
     def add_lower_shading(self, build_ele ,com_prop_stroke) :
         #lower_shading=0
 
         wall_length  = build_ele.Length1_1.value
-        wall_length2  = 1000
+        wall_length2  = self.wall_length2
 
         shading_d=build_ele.shading2_depth.value
         shading_b=build_ele.shading2_b.value
@@ -963,7 +2135,7 @@ class CreateWall():
 
         z_ref= windows_refz - shading_t - offset
         #x_ref= windows_refx + windows_length/2   - shading_l/2
-        x_ref= windows_refx
+        x_ref= self.windows_refx
 
         lower_shading_point += AllplanGeo.Point3D(x_ref, 0, z_ref+0)
         lower_shading_point += AllplanGeo.Point3D(x_ref, -shading_d, z_ref+0)
@@ -976,8 +2148,8 @@ class CreateWall():
 
         lower_shading_path += AllplanGeo.Point3D(x_ref,0,0)
         #lower_shading_path += AllplanGeo.Point3D(x_ref+shading_l,0,0)
-        lower_shading_path += AllplanGeo.Point3D(x_ref+windows_length,0,0)
-        lower_shading_path += AllplanGeo.Point3D(x_ref+windows_length,wall_length2-200,0)
+        lower_shading_path += AllplanGeo.Point3D(wall_length,0,0)
+        lower_shading_path += AllplanGeo.Point3D(wall_length,wall_length2-200,0)
 
         err, lower_shading = AllplanGeo.CreatePolyhedron(lower_shading_point, lower_shading_path)
         if not GeometryValidate.polyhedron(err):
@@ -988,9 +2160,9 @@ class CreateWall():
     def add_shading_back(self, build_ele ,com_prop_stroke) :
         #lower_shading=0
 
-        wall_length  = build_ele.Length1_1.value
-        wall_length2  = 1000
-        wall_thickness = build_ele.Thickness1_1.value
+        wall_length  = self.wall_length
+        wall_length2  = self.wall_length2
+        wall_thickness = self.wall_thickness
 
         #shading_back_l1=build_ele.shading_back_l1.value
         shading_back_l2=build_ele.shading_back_l2.value
@@ -1000,9 +2172,6 @@ class CreateWall():
 
         shading_back_l1=wall_length-wall_thickness-shading_back_d
 
-        wall_length  = build_ele.Length1_1.value
-        wall_width = build_ele.Width1_1.value
-        wall_thickness = build_ele.Thickness1_1.value
 
         windows_refz = build_ele.win_z.value
         windows_width = build_ele.win_width.value
@@ -1065,7 +2234,7 @@ class CreateWall():
           return
 
         shading_back2_path += AllplanGeo.Point3D(x2_ref,y2_ref,z2_ref)
-        shading_back2_path += AllplanGeo.Point3D(x2_ref,y2_ref+wall_length2-shading_back_d,z2_ref)
+        shading_back2_path += AllplanGeo.Point3D(x2_ref,y2_ref+wall_length2-wall_thickness,z2_ref)
 
         err, shading_back2 = AllplanGeo.CreatePolyhedron(shading_back2_point, shading_back2_path)
         if not GeometryValidate.polyhedron(err):

@@ -158,13 +158,13 @@ class CreateWall():
         self.shading_back_d=build_ele.shading_back_depth.value
 
         # get rein
-        self.rein = True
+        self.rein = build_ele.chkb_rein.value
         self.concrete_grade        = 4
         self.concrete_cover        = 0
-        self.diameter              = 10.0
+        self.diameter              = build_ele.Diameter.value
         self.bending_roller        = 4.0
         self.steel_grade           = 4
-        self.distance              = 150.0
+        self.distance              = build_ele.Distance.value
         self.mesh_type             = None
 
         self.start_hook            = True
@@ -175,6 +175,8 @@ class CreateWall():
 
         self.distance_longbar       = 50
         self.distance_rein_shading  = 200
+
+        self.distance_wiremesh = build_ele.Distance2.value
 
         self.create_geometry(build_ele)
 
@@ -515,7 +517,7 @@ class CreateWall():
         ver_longbar_end_point6 = AllplanGeo.Point3D(x6_ref-self.wall_length-self.wall_l2_x+50       , y6_ref+self.wall_l2_y +offset_y-55   , z6_ref + offset_z)
 
         ver_longbarlongbar_angles = RotationAngles(0, -90, 0)
-        ver_longbarlongbar_dist = 150
+        ver_longbarlongbar_dist = self.distance_wiremesh
 
         ver_longbar_shape = GeneralShapeBuilder.create_longitudinal_shape_with_hooks(ver_longbar,
                                                                                ver_longbarlongbar_angles,
