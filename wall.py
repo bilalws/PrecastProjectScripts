@@ -1646,7 +1646,7 @@ class CreateWall():
 
     def add_upper_join(self, build_ele ,com_prop_stroke ,type =1) :
 
-        upper_join_l=build_ele.type3_length.value
+        upper_join_l=self.wall_length
         upper_join_h=build_ele.type3_height.value
         upper_join_d1=build_ele.type3_depth1.value
         upper_join_d2=build_ele.type3_depth2.value
@@ -1726,7 +1726,13 @@ class CreateWall():
         shading_d=build_ele.shading1_depth.value
         shading_b=build_ele.shading1_b.value
         shading_t=build_ele.shading1_thickness.value
-        shading_l=build_ele.shading1_length.value
+
+
+        if (build_ele.custom_shading.value):
+            shading_l=build_ele.shading1_length.value
+        else:
+            shading_l=self.windows_length
+        
 
         windows_refx = build_ele.win_x.value
         windows_refz = build_ele.win_z.value
@@ -1765,7 +1771,12 @@ class CreateWall():
         shading_d=build_ele.shading2_depth.value
         shading_b=build_ele.shading2_b.value
         shading_t=build_ele.shading2_thickness.value
-        shading_l=build_ele.shading2_length.value
+        # shading_l=build_ele.shading2_length.value
+
+        if (build_ele.custom_shading.value):
+            shading_l=build_ele.shading2_length.value
+        else:
+            shading_l=self.windows_length
 
         windows_refx = build_ele.win_x.value
         windows_refz = build_ele.win_z.value

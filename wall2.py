@@ -2077,12 +2077,15 @@ class CreateWall():
 
         upper_shading_point = AllplanGeo.Polygon3D()
         upper_shading_path = AllplanGeo.Polyline3D()
+        void_thickness = self.windows_length2
 
         offset_z=50
         offset_y=180
 
         z_ref= windows_refz + windows_width + offset_z
         x_ref= windows_refx + windows_length/2   - shading_l/2
+
+
 
         upper_shading_point += AllplanGeo.Point3D(0, 0, z_ref+0)
         upper_shading_point += AllplanGeo.Point3D(0, -shading_d, z_ref+0)
@@ -2093,10 +2096,10 @@ class CreateWall():
         if not GeometryValidate.is_valid(upper_shading_point):
           return
 
-        upper_shading_path += AllplanGeo.Point3D(0,0,z_ref)
+        upper_shading_path += AllplanGeo.Point3D(self.windows_refx,0,z_ref)
         #upper_shading_path += AllplanGeo.Point3D(x_ref+shading_l,0,0)
         upper_shading_path += AllplanGeo.Point3D(0+wall_length,0,z_ref)
-        upper_shading_path += AllplanGeo.Point3D(0+wall_length,wall_length2-offset_y,z_ref)
+        upper_shading_path += AllplanGeo.Point3D(0+wall_length,void_thickness+350,z_ref)
 
         err, upper_shading = AllplanGeo.CreatePolyhedron(upper_shading_point, upper_shading_path)
         if not GeometryValidate.polyhedron(err):
@@ -2149,7 +2152,9 @@ class CreateWall():
         lower_shading_path += AllplanGeo.Point3D(x_ref,0,0)
         #lower_shading_path += AllplanGeo.Point3D(x_ref+shading_l,0,0)
         lower_shading_path += AllplanGeo.Point3D(wall_length,0,0)
-        lower_shading_path += AllplanGeo.Point3D(wall_length,wall_length2-200,0)
+        
+        #Lower Shading 2 edit at self.windows_length2
+        lower_shading_path += AllplanGeo.Point3D(wall_length,self.windows_length2,0)
 
         err, lower_shading = AllplanGeo.CreatePolyhedron(lower_shading_point, lower_shading_path)
         if not GeometryValidate.polyhedron(err):
