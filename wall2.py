@@ -595,7 +595,7 @@ class CreateWall():
 
 
         rein_shading_start_point2 = AllplanGeo.Point3D(x2_ref, y2_ref, z2_ref)
-        rein_shading_end_point2 = AllplanGeo.Point3D(x2_ref, y2_ref+self.wall_length2-shading2_offset_y, z2_ref)
+        rein_shading_end_point2 = AllplanGeo.Point3D(x2_ref, y2_ref+self.windows_length2, z2_ref)
 
 
         rein_shading_angles2 = RotationAngles(0, 270 , 90)

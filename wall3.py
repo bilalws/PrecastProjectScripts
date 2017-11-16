@@ -290,7 +290,7 @@ class CreateWall():
         stirrup_start_point1_2 = AllplanGeo.Point3D(x1_2ref -xy_cover_offset_shift, y1_2ref+xy_cover_offset_shift, z1_2ref)
         stirrup_end_point1_2 = AllplanGeo.Point3D(x1_2ref-self.wall_l2_x , y1_2ref+self.wall_l2_y, z1_2ref)
 
-
+        #manualy adjusted according to wall angle
         if (self.wall_type == 1) :
             stirrup_start_point1_2 = AllplanGeo.Point3D(x1_2ref -xy_cover_offset_shift, y1_2ref+xy_cover_offset_shift-33, z1_2ref)
 
@@ -374,6 +374,7 @@ class CreateWall():
         hori_longbar_start_point2 = AllplanGeo.Point3D(x3_ref+xy_cover_offset           , y3_ref +xy_cover_offset, z3_ref)
         hori_longbar_end_point2 = AllplanGeo.Point3D(x3_ref+200 -xy_cover_offset        , y3_ref + 180 - xy_cover_offset, z3_ref)
 
+        #manualy adjusted according to wall angle
         if (self.wall_type == 1) :
             hori_longbar_start_point2 = AllplanGeo.Point3D(x3_ref+xy_cover_offset+10           , y3_ref +xy_cover_offset-60, z3_ref)
             hori_longbar_end_point2 = AllplanGeo.Point3D(x3_ref+200 -xy_cover_offset-40        , y3_ref + 180 - xy_cover_offset, z3_ref)
@@ -557,8 +558,7 @@ class CreateWall():
         ver_longbar_start_point6 = AllplanGeo.Point3D(x6_ref-self.wall_length+50   , y6_ref+offset_y-55                   , z6_ref + offset_z)
         ver_longbar_end_point6 = AllplanGeo.Point3D(x6_ref-self.wall_length-self.wall_l2_x+50       , y6_ref+self.wall_l2_y +offset_y-55   , z6_ref + offset_z)
 
-        #3
-
+        #manualy adjusted according to wall angle
         if (self.wall_type == 1) :
             ver_longbar_start_point5 = AllplanGeo.Point3D(x5_ref-self.wall_length+10   , y5_ref+offset_y-5                   , z5_ref + offset_z)
             ver_longbar_end_point5 = AllplanGeo.Point3D(x5_ref-self.wall_length-self.wall_l2_x+10       , y5_ref+self.wall_l2_y + offset_y-5  , z5_ref + offset_z)
